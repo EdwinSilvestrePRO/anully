@@ -9,7 +9,7 @@ He aquí demostración:
 
 ```javascript
 import net from 'node:net';
-import anully from './reqParser.js';
+import anully from 'anully';
 
 function handler (socket) {
     socket.on('data', eventArg=> {
