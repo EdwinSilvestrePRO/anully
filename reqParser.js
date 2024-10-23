@@ -1,21 +1,27 @@
 export default function requestParser (socketData) {
 	try {
 		let stringRequest = socketData.toString('utf-8');
-		let lastOfHeader = stringRequest.indexOf("\r\n\r\n", 3);
+		let theEnd = "\r\n\r\n";
 		
-		if(lastOfHeader < 3) return false;
-	
-		const body = stringRequest.split("").filter((el, index)=> index > lastOfHeader).join('');
-		stringRequest = stringRequest.split("").filter((el, index)=> index < lastOfHeader).join('');
-	
+		let matched = stringRequest.match(/[\r\n]{4}/);
+
+		let lastOfHeader = matched !== null? matched.index : stringRequest.indexOf(theEnd, 3);
+		
+		if(lastOfHeader < 3 || !Buffer.isBuffer(socketData)) return false;
+		const body = Array.from(socketData).filter((el, index)=> index >= lastOfHeader+theEnd.length);
+
+		stringRequest = stringRequest.split("").filter((el, index)=> index < lastOfHeader+theEnd.length).join('');
 	
 		let obRequest = {
 			method: '',
 			path: '/',
 			htWithVersion: '',
 			headers: {},
+			headerLength: 0,
 			body
 		};
+		obRequest.headerLength = stringRequest.length;
+
 		let isFirst = true;
 		for (let line of stringRequest.split("\r\n")) {
 			if(isFirst) {
@@ -35,15 +41,16 @@ export default function requestParser (socketData) {
 	
 				if((/accept/i).test(key)) obRequest.headers[key.toLowerCase()] = line.split(',');
 				else if (key.toLowerCase() == 'sec-ch-ua') {
-					line = "{" + line.replaceAll(';v="', ":\"v") + "}";
+					line = "{" + line.replace(/\;v\=\"/g, ":\"v") + "}";
 					obRequest.headers[key.toLowerCase()] = JSON.parse(line);
 				}
-				else if (key.toLowerCase() == 'sec-ch-ua-platform') obRequest[key.toLowerCase()] = line.replaceAll("\"", "");
+				else if (key.toLowerCase() == 'sec-ch-ua-platform') obRequest[key.toLowerCase()] = line.replace(/\"/g, "");
 				
 				else obRequest.headers[key.toLowerCase()] = line;
 			}
 	
 		}
+
 		return obRequest;
 	} catch (error) {
 		return false;
